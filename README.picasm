@@ -1,0 +1,73 @@
+Thanks for trying out PICasm, a little development environment for
+writing PIC assembler programs. This is the first release, so there
+are probably bugs. Feel free to contact me if you find any.
+
+Features:
+
+* Syntax highlighting
+* Indentation
+* 'Electric' comment key
+* Bundled PIC chip database
+* Assembler/Linker support for GNU gputils and Microchip's MPASM
+* Programmer support for the pk2cmd program
+* Delay loop calculation and code generation
+
+I didn't implement a "Project" system like MPLAB and piklab have; if
+you want that there are several project managment systems for emacs
+that you can add.
+
+I plan to add simulation/debugging support via GPSIM at some point in
+the future.
+
+Installation
+------------
+
+I don't have much in the way of automated installation; here's a list
+of things you'll want to do in no particular order:
+
+* Drop all of the .el files somewhere emacs can find them. 
+
+* Byte-compile all of the .el files if you want.
+
+* Compile the small "picloops" program using a C compiler. I would
+  suggest "gcc -opicloops picloops.c -lm" if you are using GCC.
+
+* Drop the PIC chip database ("pics.xml") somewhere convenient. I
+  would suggest ~/.emacs.d/picasm/pics.xml, as that is the default
+  location. 
+
+* Make sure you have either GNU gputils or MPLAB+WINE installed.
+  GNU gputils is better supported, so use that if you have a choice.
+
+* Add "(require 'picasm)" to your .emacs, and start emacs.
+
+* Visit the customization options: "M-x customize-group RET picasm"
+  and "M-x customize-group RET picasm-external" to set paths and other
+  options.
+
+If you've done all of those things, you should be able to edit files
+now. If you use the ".asm" extension for your PIC assembler files (and
+only PIC; if you write assembler for other chips this will break
+regular assembler-mode), you can change the auto-mode-alist entry for
+.asm like this:
+
+(add-to-list 'auto-mode-alist '("\\.asm$" . picasm-mode))
+
+PICasm will ask you for the name of the chip you're writing for when
+it starts. Don't worry about case. If after answering this question
+you get a "not found" message when using picasm-describe-chip, let me
+know which chip you're using and I'll add it to the database. The
+database itself is adapted from the CSV files available on
+Microchip's website; it's possible they left some out. I have included
+the script I wrote to parse the CSV for curiosity's sake.
+
+I haven't written assembler for PIC18F-series chips yet, so you won't
+find support for them here. Feel free to send me a patch implementing
+this! 
+
+Have fun. Report bugs. 
+
+-Daniel Debertin
+--
+dan@mapcar.org
+debertin@gmail.com
