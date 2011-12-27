@@ -246,6 +246,6 @@
   "Whether to display assembler output in a new window"
   :type 'boolean :group 'picasm)
 
-(provide 'picasm-mode)
+(provide 'picasm)
 
 
