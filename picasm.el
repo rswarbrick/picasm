@@ -161,7 +161,7 @@
 
 (defvar picasm-mode-map (make-keymap))
 
-(defcustom picasm-use-defauly-keybindings t
+(defcustom picasm-use-default-keybindings t
   "Whether to assume you want to use my keybindings (recommended!)"
   :type 'boolean :group 'picasm)
 
