@@ -13,7 +13,7 @@ Features:
 * Delay loop calculation and code generation
 
 I didn't implement a "Project" system like MPLAB and piklab have; if
-you want that there are several project managment systems for emacs
+you want that there are several project management systems for emacs
 that you can add.
 
 I plan to add simulation/debugging support via GPSIM at some point in
