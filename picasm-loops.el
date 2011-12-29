@@ -54,7 +54,7 @@
 
 (defun picloops-calc (label seconds clock-mhz)
   (interactive "Mlabel: \nnSeconds: \nnClock (MHz): ")
-  (let ((counters (picloops-run-picloops seconds clock-mhz)))
+  (let ((counters (picasm-run-picloops seconds clock-mhz)))
     (cond ((= (cadr counters) -1)
 	   (picloops-loop-1 label (car counters)))
 	  ((= (caddr counters) -1)

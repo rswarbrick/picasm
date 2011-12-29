@@ -71,7 +71,6 @@
 (defun picasm-asm (program flags)
   (shell-command (concat program " " (mapconcat '(lambda (x) x) flags " ")) (and picasm-show-assembler-output "*Assembler Output*")))
   
-
 ;; Doesn't work yet...
 (defun run-mpasm (file chip)
   "Run the Microchip MPASM assembler on FILE for CHIP. MPASM for Linux (via WINE) can be downloaded as part of MPLAB-X. See README.MPASM."
@@ -91,7 +90,7 @@
 
 (defun picasm-run-picloops (seconds clock-mhz)
   "Return value is a list of counter values, from counterA to counterC"
-  (mapcar 'string-to-number (split-string (shell-command-to-string (format "%s %f %f" picloops-path seconds clock-mhz)))))
+  (mapcar 'string-to-number (split-string (shell-command-to-string (format "%s %f %f" picasm-picloops-program  seconds clock-mhz)))))
 
 ;; Loop calculation uses an external C program because it's easier
 ;; (read: possible) to do floating point in C.
