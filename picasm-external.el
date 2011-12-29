@@ -71,7 +71,6 @@
 (defun picasm-asm (program flags)
   (shell-command (concat program " " (mapconcat '(lambda (x) x) flags " ")) (and picasm-show-assembler-output "*Assembler Output*")))
   
-;; Doesn't work yet...
 (defun run-mpasm (file chip)
   "Run the Microchip MPASM assembler on FILE for CHIP. MPASM for Linux (via WINE) can be downloaded as part of MPLAB-X. See README.MPASM."
   (let ((flags (append (list (concat "/p" chip))   ;; no spaces between flag and arg
