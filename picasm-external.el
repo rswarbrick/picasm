@@ -20,9 +20,9 @@
   "Location of the WINE executable (for running MPASM, if enabled)"
   :type 'string :group 'picasm-external)
 
-(defcustom picasm-mpasm-program "~/.wine/drive_c/Program Files/Microchip/MPASM Suite/MPASMWIN.exe"
+(defcustom picasm-mpasm-program "~/.wine/drive_c/Program\ Files/Microchip/MPASM Suite/MPASMWIN.exe"
   "Location of the MPASMWIN executable (run under WINE)"
-  :type 'string :group 'picasm-external)
+  :type 'file :group 'picasm-external)
 
 (defcustom picasm-includes (list ".")
   "List of include directories"
@@ -74,10 +74,11 @@
 ;; Doesn't work yet...
 (defun run-mpasm (file chip)
   "Run the Microchip MPASM assembler on FILE for CHIP. MPASM for Linux (via WINE) can be downloaded as part of MPLAB-X. See README.MPASM."
-  (let ((flags (append (list "/p" chip)
-		       (list "/r" picasm-default-radix)
+  (let ((flags (append (list (concat "/p" chip))   ;; no spaces between flag and arg
+		       (list (concat "/r" picasm-default-radix))
+		       (list (concat "/a" (upcase picasm-output-format)))
 		       (list "/q")
-		       (list file))))
+		       (list (replace-regexp-in-string "/" "\\\\\\\\" file)))))   ; win{e,doze} confused by '/'
     (picasm-asm picasm-mpasm-program flags)))
 
 (defun picasm-link (file)
