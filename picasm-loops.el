@@ -36,7 +36,7 @@
     (i-f "\tMOVLW\tD'%d'\n" counter-c)
     (i-f "\tMOVWF\tCounterC\n")
     (i-f "delay_%s_loop:\n" label)
-    (i-f "\tCALL\tsub_delay_%s:\n" label)
+    (i-f "\tCALL\tsub_delay_%s\n" label)
     (i-f "\tDECFSZ\tCounterC,f\n")
     (i-f "\tGOTO\tdelay_%s_loop\n" label)
     (i-f "\tRETURN\n\n")
