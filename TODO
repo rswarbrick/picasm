@@ -9,8 +9,8 @@
 * I don't think labels on the same line as instructions are indented properly
 
 * More detailed chip database 
-This would require manual entry of chip details off of the
-datasheets. Not my idea of a good time...
+This would require manual entry of chip details off of the datasheets,
+and there are hundreds of chips. Not my idea of a good time...
 
 * Configuration word editor
 
