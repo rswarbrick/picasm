@@ -1,0 +1,18 @@
+-*- Mode: org -*-
+
+* Toolbar menu
+
+* Lookup-table generator
+
+* Maybe some yasnippet templates for common control structures?
+
+* I don't think labels on the same line as instructions are indented properly
+
+* More detailed chip database 
+This would require manual entry of chip details off of the
+datasheets. Not my idea of a good time...
+
+* Configuration word editor
+
+* Simulation/debugging support using GPSIM
+
