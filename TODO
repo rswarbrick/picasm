@@ -14,8 +14,6 @@ and there are hundreds of chips. Not my idea of a good time...
 
 * Configuration word editor
 
-* Simulation/debugging support using GPSIM
-
 * Changing the selected chip should edit/insert the "list p=<chip>" and "#include <chip.inc>" directives
 
 * Changing the selected chip should force a recalculate of the configuration word
