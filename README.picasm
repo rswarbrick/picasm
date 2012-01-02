@@ -8,7 +8,7 @@ Features:
 * Indentation
 * 'Electric' comment key
 * Bundled PIC chip database
-* Assembler/Linker support for GNU gputils and Microchip's MPASM
+* Assembler/Linker support for GNU gputils and Microchip's MPASM (via WINE)
 * Programmer support for the pk2cmd program
 * Delay loop calculation and code generation
 
@@ -60,6 +60,36 @@ know which chip you're using and I'll add it to the database. The
 database itself is adapted from the CSV files available on
 Microchip's website; it's possible they left some out. I have included
 the script I wrote to parse the CSV for curiosity's sake.
+
+Things to Try
+-------------
+Of course, the first order of business is indentation and syntax
+highlighting. After that, here are a few neat things to try:
+
+* "M-x describe-chip" will give you some interesting information about
+  the PIC chip you have selected.
+* "C-c C-c" will compile and link your program using whatever toolchain
+  you have selected (gpasm/gplink are the default).
+* "C-c C-p" will upload your program (the ".hex" file you created when
+  you compiled it) on to your chip. This assumes you have both a
+  PicKit2-compatible programmer attached off of a USB port, and the
+  Microchip "pk2cmd" command-line program installed. 
+* Pressing ";" will insert a comment at the end of the current line
+  and move point there.
+* "M-x insert-delay" will ask you for a label, the number of seconds
+  you wish to delay (use decimals for delays shorter than one second),
+  and the speed of the clock you have selected in MHz (use decimals
+  for sub-1MHz clocks), and insert code to delay that many seconds.
+
+Links
+-----
+* This software can be downloaded at: 
+  http://http://code.google.com/p/picasm/
+* Links to pk2cmd (for Linux) and MPLAB (for Windows) can be found at: 
+  http://www.microchip.com/stellent/idcplg?IdcService=SS_GET_PAGE&nodeId=1406&dDocName=en023805
+* Your OS's package repository probably has WINE, needed to run MPASM, available
+  as a package. If not, WINE can be downloaded at http://www.winehq.org.
+
 
 I haven't written assembler for PIC18F-series chips yet, so you won't
 find support for them here. Feel free to send me a patch implementing
