@@ -68,7 +68,7 @@ highlighting. After that, here are a few neat things to try:
 
 * "M-x describe-chip" will give you some interesting information about
   the PIC chip you have selected.
-* "C-c C-c" will compile and link your program using whatever toolchain
+* "C-c C-c" will assemble and link your program using whatever toolchain
   you have selected (gpasm/gplink are the default).
 * "C-c C-p" will upload your program (the ".hex" file you created when
   you compiled it) on to your chip. This assumes you have both a
