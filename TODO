@@ -10,8 +10,8 @@
 
 * More detailed chip database 
 This would require manual entry of chip details off of the datasheets,
-and there are hundreds of chips. Not my idea of a good time...
-
+and there are hundreds of chips. Not sure when I'll have time to do
+this.
 * Configuration word editor
 Depends on getting more chip info into the database so we know which
 CONFIG elements a given chip has.
