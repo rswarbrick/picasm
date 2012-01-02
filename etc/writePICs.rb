@@ -103,7 +103,7 @@ end
 
 
 doc.add_element(top)
-formatter = REXML::Formatters::Default.new()
+formatter = REXML::Formatters::Pretty.new()
 out = String.new
 formatter.write(doc, out)
 puts out

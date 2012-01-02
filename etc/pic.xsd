@@ -1,0 +1,43 @@
+<?xml version="1.0"?>
+
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:complexType name="Chip">
+    <xs:sequence>
+      <xs:element name="Peripherals" minOccurs="1" maxOccurs="1">
+	<xs:complexType>
+	  <xs:sequence>
+	    <xs:element name="ADCChannels" type="xs:integer" minOccurs="0" maxOccurs="1"/>
+	    <xs:element name="UARTs" type="xs:integer" minOccurs="0" maxOccurs="1"/>
+	    <xs:element name="USARTs" type="xs:integer" minOccurs="0" maxOccurs="1"/>
+	    <xs:element name="SPI" type="xs:integer" minOccurs="0" maxOccurs="1"/>
+	    <xs:element name="I2C" type="xs:integer" minOccurs="0" maxOccurs="1"/>
+	    <xs:element name="SSP" type="xs:integer" minOccurs="0" maxOccurs="1"/>
+	    <xs:element name="MSSP" type="xs:integer" minOccurs="0" maxOccurs="1"/>
+	    <xs:element name="Timer" minOccurs="0" maxOccurs="unbounded">
+	      <xs:complexType>
+		<xs:attribute name="Count" type="xs:integer" use="required"/>
+		<xs:attribute name="Bits" type="xs:integer" use="required"/>
+	      </xs:complexType>
+	    </xs:element>
+	  </xs:sequence>
+	</xs:complexType>
+      </xs:element>
+      <xs:element name="Memory" minOccurs="1" maxOccurs="1" type="xs:integer"/>
+      <xs:element name="Oscillator" minOccurs="0" maxOccurs="unbounded">
+	<xs:complexType>
+	  <xs:attribute name="Speed" type="xs:string" use="required"/>
+	</xs:complexType>
+      </xs:element>
+    </xs:sequence>
+    <xs:attribute name="Name" type="xs:string" use="required"/>
+    <xs:attribute name="PinCount" type="xs:integer" use="required"/>
+  </xs:complexType>
+
+  <xs:element name="Chips">
+    <xs:complexType>
+      <xs:sequence>
+	<xs:element name="Chip" type="Chip" minOccurs="1" maxOccurs="unbounded"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>
