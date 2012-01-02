@@ -13,7 +13,9 @@ This would require manual entry of chip details off of the datasheets,
 and there are hundreds of chips. Not my idea of a good time...
 
 * Configuration word editor
-
+Depends on getting more chip info into the database so we know which
+CONFIG elements a given chip has.
 * Changing the selected chip should edit/insert the "list p=<chip>" and "#include <chip.inc>" directives
 
 * Changing the selected chip should force a recalculate of the configuration word
+Depends on configuration word support, above.
