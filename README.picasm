@@ -66,7 +66,7 @@ Things to Try
 Of course, the first order of business is indentation and syntax
 highlighting. After that, here are a few neat things to try:
 
-* "M-x describe-chip" will give you some interesting information about
+* "M-x picasm-describe-chip" will give you some interesting information about
   the PIC chip you have selected.
 * "C-c C-c" will assemble and link your program using whatever toolchain
   you have selected (gpasm/gplink are the default).
