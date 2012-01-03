@@ -76,7 +76,7 @@ highlighting. After that, here are a few neat things to try:
   Microchip "pk2cmd" command-line program installed. 
 * Pressing ";" will insert a comment at the end of the current line
   and move point there.
-* "M-x insert-delay" will ask you for a label, the number of seconds
+* "M-x picasm-insert-delay" will ask you for a label, the number of seconds
   you wish to delay (use decimals for delays shorter than one second),
   and the speed of the clock you have selected in MHz (use decimals
   for sub-1MHz clocks), and insert code to delay that many seconds.
