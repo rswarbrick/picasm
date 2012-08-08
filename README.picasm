@@ -36,7 +36,11 @@ of things you'll want to do in no particular order:
 * Make sure you have either GNU gputils or MPLAB+WINE installed.
   GNU gputils is better supported, so use that if you have a choice.
 
-* Add "(require 'picasm)" to your .emacs, and start emacs.
+* Add "(require 'picasm)" to your .emacs, and start Emacs. If you
+  won't be writing PIC assembler all the time, another option is to
+  use auto-loading. Try adding this to your .emacs instead:
+    (autoload 'picasm-mode "picasm"
+      "Mode for editing PIC assembly files." t)
 
 * Visit the customization options: "M-x customize-group RET picasm"
   and "M-x customize-group RET picasm-external" to set paths and other
