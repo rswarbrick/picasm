@@ -247,11 +247,6 @@
       (dolist (osc (xml-get-children chip-descr 'Oscillator))
 	(insert (format "Oscillator: %s\n" (xml-get-attribute osc 'Speed)))))))
 
-
-(defcustom picasm-show-assembler-output nil
-  "Whether to display assembler output in a new window"
-  :type 'boolean :group 'picasm)
-
 (provide 'picasm)
 
 
