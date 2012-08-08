@@ -29,9 +29,6 @@ of things you'll want to do in no particular order:
 
 * Byte-compile all of the .el files if you want.
 
-* Compile the small "picloops" program using a C compiler. I would
-  suggest "gcc -opicloops picloops.c -lm" if you are using GCC.
-
 * Drop the PIC chip database ("pics.xml") somewhere convenient. I
   would suggest ~/.emacs.d/picasm/pics.xml, as that is the default
   location. 

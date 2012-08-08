@@ -32,10 +32,6 @@
   "Default radix for assembling files"
   :options '("BIN" "DEC" "OCT" "HEX") :group 'picasm-external)
 
-(defcustom picasm-picloops-program "~/.emacs.d/picasm/picloops"
-  "Location of the picloops loop calculation program"
-  :type 'string :group 'picasm-external)
-
 (defcustom picasm-pk2cmd-program "/usr/local/bin/pk2cmd"
   "Location of the pk2cmd executable"
   :type 'string :group 'picasm-external)
@@ -95,22 +91,18 @@
     (shell-command (concat picasm-gplink-program " " (mapconcat (lambda (x) x) flags " ")))))
 
 
-(defun picasm-run-picloops (seconds clock-mhz)
-  "Return value is a list of counter values, from counterA to counterC"
-  (mapcar 'string-to-number (split-string (shell-command-to-string (format "%s %f %f" picasm-picloops-program  seconds clock-mhz)))))
-
-;; Loop calculation uses an external C program because it's easier
-;; (read: possible) to do floating point in C.
 (defun picasm-insert-delay (label seconds clock-mhz)
-  "Insert a routine at point, using LABEL as a name component, that will cause a delay of SECONDS length assuming a clock running at CLOCK-MHZ."
+  "Insert a routine at point, using LABEL as a name component,
+that will cause a delay of SECONDS length assuming a clock
+running at CLOCK-MHZ."
   (interactive "Mlabel: \nnSeconds: \nnClock (MHz): ")
-  (let ((counters (picasm-run-picloops seconds clock-mhz)))
-    (cond ((= (cadr counters) -1)
-           (picloops-loop-1 label (car counters)))
-          ((= (caddr counters) -1)
-           (picloops-loop-2 label (car counters) (cadr counters)))
+  (let ((counters (picasm-calculate-picloops seconds clock-mhz)))
+    (cond ((= (length counters) 1)
+           (apply #'picloops-loop-1 label counters))
+          ((= (length counters) 2)
+           (apply #'picloops-loop-2 label counters))
           (t
-           (picloops-loop-3 label (car counters) (cadr counters) (caddr counters))))))
+           (apply #'picloops-loop-3 label counters)))))
 
 ;; Interface to the pk2cmd command-line PIC programmer
 
