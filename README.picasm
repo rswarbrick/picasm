@@ -54,13 +54,16 @@ regular assembler-mode), you can change the auto-mode-alist entry for
 
 (add-to-list 'auto-mode-alist '("\\.asm$" . picasm-mode))
 
-PICasm will ask you for the name of the chip you're writing for when
-it starts. Don't worry about case. If after answering this question
-you get a "not found" message when using picasm-describe-chip, let me
-know which chip you're using and I'll add it to the database. The
-database itself is adapted from the CSV files available on
-Microchip's website; it's possible they left some out. I have included
-the script I wrote to parse the CSV for curiosity's sake.
+If the file you're editing contains a line like #include
+<pSOMETHING.inc>, PICasm will assume that you're using a chip called
+PICSOMETHING. Otherwise, it will ask you for the name of the chip
+you're writing for when you open or create a file. Don't worry about
+case. If after answering this question you get a "not found" message
+when using picasm-describe-chip, let me know which chip you're using
+and I'll add it to the database. The database itself is adapted from
+the CSV files available on Microchip's website; it's possible they
+left some out. I have included the script I wrote to parse the CSV for
+curiosity's sake.
 
 Things to Try
 -------------

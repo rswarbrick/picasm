@@ -212,13 +212,23 @@
       (picasm-setup-default-keybindings))
   (if (= (hash-table-size pic-database) 0)
       (read-pic-database))
-  (call-interactively 'picasm-select-chip)
+  (picasm-select-chip)
   (run-hooks 'picasm-mode-hook))
 
-(defun picasm-select-chip (newchip)
-  (interactive "MSelect chip: ")
-  (setq picasm-chip-select (upcase newchip))
-  (setq mode-name (format "PICasm [%s]" (upcase newchip)))
+(defun picasm-guess-chip ()
+  "Try to guess the chip used, given the current buffer. Looks
+for lines like #include <pXXXX.inc>"
+  (save-excursion
+    (goto-char (point-min))
+    (when (re-search-forward "^#include[[:blank:]]+<p\\([[:alnum:]]+\\)" nil t)
+      (concat "PIC" (upcase (match-string 1))))))
+
+(defun picasm-select-chip ()
+  (interactive)
+  (setq picasm-chip-select 
+        (or (picasm-guess-chip)
+            (upcase (read-string "Select chip: "))))
+  (setq mode-name (format "PICasm [%s]" picasm-chip-select))
   (force-mode-line-update))
 
 (defun picasm-describe-chip (&optional chip-name)
