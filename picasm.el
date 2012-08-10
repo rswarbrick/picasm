@@ -15,17 +15,11 @@
 
 (require 'picasm-external)
 (require 'picasm-loops)
-
-(defcustom pic-database-file "~/.emacs.d/picasm/chips.xml"
-  "Location of the PIC chip database (XML-format)"
-  :type 'string :group 'picasm)
-
-(defvar pic-database (make-hash-table :test 'equal))
+(require 'picasm-db)
 
 (defconst picasm-mode-synthetic-instructions
   '("pagesel"
     "banksel"))
-
 
 (defconst picasm-mode-font-lock-instruction-re
   "\\<\\(?:A\\(?:DD\\(?:LW\\|WF\\)\\|ND\\(?:LW\\|WF\\)\\)\\|B\\(?:CF\\|SF\\|TFS[CS]\\)\\|C\\(?:ALL\\|LR\\(?:WDT\\|[FW]\\)\\|OMF\\)\\|DECF\\(?:SZ\\)?\\|GOTO\\|I\\(?:NCF\\(?:SZ\\)?\\|OR\\(?:LW\\|WF\\)\\)\\|MOV\\(?:F\\|LW\\|WF\\)\\|NOP\\|R\\(?:ET\\(?:FIE\\|LW\\|URN\\)\\|[LR]F\\)\\|S\\(?:LEEP\\|UB\\(?:LW\\|WF\\)\\|WAPF\\)\\|XOR\\(?:LW\\|WF\\)\\|\\(?:BANK\\|PAGE\\)SEL\\)\\>")
@@ -189,13 +183,6 @@
   "Hook run when picasm-mode is initialized"
   :type 'hook :group 'picasm)
 
-(defun read-pic-database ()
-  (message "Reading the chip database...")
-  (require 'xml)
-  (let ((rawdb (car (xml-parse-file pic-database-file))))
-    (dolist (entry (xml-get-children rawdb 'Chip))
-      (setf (gethash (xml-get-attribute entry 'Name) pic-database) entry))))
-
 (defun picasm-mode ()
   (interactive)
   (kill-all-local-variables)
@@ -210,8 +197,7 @@
   (set (make-local-variable 'comment-start) ";")
   (if picasm-use-default-keybindings
       (picasm-setup-default-keybindings))
-  (if (= (hash-table-size pic-database) 0)
-      (read-pic-database))
+  (unless picasm-chip-db (picasm-chip-read-db))
   (picasm-select-chip)
   (run-hooks 'picasm-mode-hook))
 
@@ -230,32 +216,6 @@ for lines like #include <pXXXX.inc>"
             (upcase (read-string "Select chip: "))))
   (setq mode-name (format "PICasm [%s]" picasm-chip-select))
   (force-mode-line-update))
-
-(defun picasm-describe-chip (&optional chip-name)
-  (interactive "P")
-  (let ((temp-buffer-name (format "*chip (%s) description*" picasm-chip-select))
-	(chip-descr (gethash (or chip-name picasm-chip-select) pic-database)))
-    (if (null chip-descr)
-	(error (format "%s is not in the database. Please contact the author to have it added." picasm-chip-select)))
-    (with-output-to-temp-buffer temp-buffer-name
-      (set-buffer temp-buffer-name)
-      (insert (format "Name: %s\nPins: %d\n" 
-		      (xml-get-attribute chip-descr 'Name)
-		      (string-to-number (xml-get-attribute chip-descr 'PinCount))))
-      (let* ((periphs (car (xml-get-children chip-descr 'Peripherals)))
-	     (adc (or (caddar (xml-get-children periphs 'ADCChannels)) "0"))
-	     (uart (or (caddar (xml-get-children periphs 'UARTs)) "0"))
-	     (usart (or (caddar (xml-get-children periphs 'USARTs)) "0"))
-	     (spi (or (caddar (xml-get-children periphs 'SPI)) "0"))
-	     (i2c (or (caddar (xml-get-children periphs 'I2C)) "0"))
-	     (ssp (or (caddar (xml-get-children periphs 'SSP)) "0"))
-	     (mssp (or (caddar (xml-get-children periphs 'MSSP)) "0")))
-	(insert (format "ADC Channels: %s\nUARTs: %s\nUSARTs: %s\nSPI: %s\nI2C: %s\nSSP: %s\n MSSP: %s\n" adc uart usart spi i2c ssp mssp))
-	(dolist (timer (xml-get-children periphs 'Timer))
-	  (insert (format "Timer: %d at %d bits\n" (string-to-number (xml-get-attribute timer 'Count)) (string-to-number (xml-get-attribute timer 'Bits))))))
-      (insert (format "Memory: %d\n" (string-to-number (caddar (xml-get-children chip-descr 'Memory)))))
-      (dolist (osc (xml-get-children chip-descr 'Oscillator))
-	(insert (format "Oscillator: %s\n" (xml-get-attribute osc 'Speed)))))))
 
 (provide 'picasm)
 

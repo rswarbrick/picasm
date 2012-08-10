@@ -7,7 +7,7 @@ Features:
 * Syntax highlighting
 * Indentation
 * 'Electric' comment key
-* Bundled PIC chip database
+* Automatically look up information for a chip at Microchip's website.
 * Assembler/Linker support for GNU gputils and Microchip's MPASM (via WINE)
 * Programmer support for the pk2cmd program
 * Delay loop calculation and code generation
@@ -28,10 +28,6 @@ of things you'll want to do in no particular order:
 * Drop all of the .el files somewhere emacs can find them. 
 
 * Byte-compile all of the .el files if you want.
-
-* Drop the PIC chip database ("pics.xml") somewhere convenient. I
-  would suggest ~/.emacs.d/picasm/pics.xml, as that is the default
-  location. 
 
 * Make sure you have either GNU gputils or MPLAB+WINE installed.
   GNU gputils is better supported, so use that if you have a choice.
@@ -58,12 +54,14 @@ If the file you're editing contains a line like #include
 <pSOMETHING.inc>, PICasm will assume that you're using a chip called
 PICSOMETHING. Otherwise, it will ask you for the name of the chip
 you're writing for when you open or create a file. Don't worry about
-case. If after answering this question you get a "not found" message
-when using picasm-describe-chip, let me know which chip you're using
-and I'll add it to the database. The database itself is adapted from
-the CSV files available on Microchip's website; it's possible they
-left some out. I have included the script I wrote to parse the CSV for
-curiosity's sake.
+case. Once PICasm knows what chip you are using, M-x
+picasm-describe-chip will be able to pull up information about it,
+automatically downloaded (and cached) from Microchip's website.
+
+If this doesn't work for some reason, the format of their website has
+probably changed (unfortunately, the only way to get this information
+is by screen scraping). If so, some of the code in picasm-db.el
+probably needs to be changed.
 
 Things to Try
 -------------
