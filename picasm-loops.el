@@ -102,14 +102,4 @@ MHz."
     (i-f "\tGOTO\tsub_delay_%s_loop\n" label)
     (i-f "\tRETURN\n")))
 
-(defun picloops-calc (label seconds clock-mhz)
-  (interactive "Mlabel: \nnSeconds: \nnClock (MHz): ")
-  (let ((counters (picasm-run-picloops seconds clock-mhz)))
-    (cond ((= (cadr counters) -1)
-	   (picloops-loop-1 label (car counters)))
-	  ((= (caddr counters) -1)
-	   (picloops-loop-2 label (car counters) (cadr counters)))
-	  (t
-	   (picloops-loop-3 label (car counters) (cadr counters) (caddr counters))))))
-
 (provide 'picasm-loops)
