@@ -1,28 +1,33 @@
 ;; Interfaces to external programs and output parsers.
 
-(defcustom picasm-assembler-program 'gpasm
-  "Select either GPASM or MPASM to assemble source files"
-  :options '(gpasm mpasm) :group 'picasm-external)
+;; Running *asm uses compilation mode.
+(require 'compile)
 
-(defcustom picasm-gpasm-program "/usr/bin/gpasm"
+(defcustom picasm-assembler-program 'gpasm
+  "Select either GPASM or MPASMX to assemble source files"
+  :type 'symbol
+  :options '(gpasm mpasmx)
+  :group 'picasm-external)
+
+(defcustom picasm-gpasm-program "gpasm"
   "Location of the gpasm executable"
   :type 'string :group 'picasm-external)
 
-(defcustom picasm-gplink-program "/usr/bin/gplink"
+(defcustom picasm-gplink-program "gplink"
   "Location of the gplink executable"
+  :type 'string :group 'picasm-external)
+
+(defcustom picasm-mpasmx-program "/opt/microchip/mplabx/mpasmx/mpasmx"
+  "Location of the mpasmx executable"
+  :type 'string :group 'picasm-external)
+
+(defcustom picasm-mplinkx-program "/opt/microchip/mplabx/mpasmx/mplink"
+  "Location of the (native) mplink executable"
   :type 'string :group 'picasm-external)
 
 (defcustom picasm-output-format "inhx32" 
   "Output format for HEX files"
   :options '("inhx8m" "inhx8s" "inhx16" "inhx32") :group 'picasm-external)
-  
-(defcustom picasm-mpasm-wine-program "/usr/bin/wine"
-  "Location of the WINE executable (for running MPASM, if enabled)"
-  :type 'string :group 'picasm-external)
-
-(defcustom picasm-mpasm-program "~/.wine/drive_c/Program\ Files/Microchip/MPASM Suite/MPASMWIN.exe"
-  "Location of the MPASMWIN executable (run under WINE)"
-  :type 'file :group 'picasm-external)
 
 (defcustom picasm-includes (list ".")
   "List of include directories"
@@ -43,45 +48,85 @@
 ;; Defined in picasm.el, but redeclare here to shut up the byte compiler.
 (defvar picasm-chip-select)
 
+(defun picasm-stripped-chip-name (chip-name)
+  "Return an lower case version of `CHIP-NAME' with any prefix of
+P or PIC stripped away. MPASMX expects this and GPASM doesn't
+mind."
+  (downcase
+   (cond
+    ((string= "PIC" (upcase (substring chip-name 0 3)))
+     (substring chip-name 3))
+    ((char-equal ?P (upcase (aref chip-name 0)))
+     (substring chip-name 1))
+    (t chip-name))))
+
+(defun picasm-assemble-command-pieces (file chip)
+  "Return a list of strings corresponding to the program and
+arguments for assembling `FILE' for the given chip. `CHIP' should
+the complete name, of the form PIC16F683 or similar."
+  (cond
+   ((eq picasm-assembler-program 'gpasm)
+    (picasm-gpasm-command-pieces file chip))
+   ((eq picasm-assembler-program 'mpasmx)
+    (picasm-mpasmx-command-pieces file chip))
+   (t
+    (error "%s is not a valid value for picasm-assembler-program."
+           picasm-assembler-program))))
+
+(defun picasm-gpasm-command-pieces (file chip)
+  "See `picasm-assemble-command-pieces'."
+  `(,picasm-gpasm-program
+    ,@(let ((acc))
+        (dolist (dir picasm-includes acc)
+          (push dir acc) (push "-I" acc)))
+    "-p" ,(picasm-stripped-chip-name chip)
+    "-r" ,picasm-default-radix "-c" ,file))
+
+;; MPASMX demonstrates how well designed it is by
+;;  (1) Not making use of exit status for error
+;;  (2) Not outputting any warnings or errors to the console
+;;  (3) Redirecting the listfile to stderr? Why would you every want to do that?
+;;
+;; As such, we'll use a harness for it that assumes a Posix shell and does funky
+;; stuff with temporary files to get what one might actually expect. Joy.
+(defun picasm-mpasmx-command-pieces (file chip)
+  "See `picasm-assemble-command-pieces'."
+  (list
+   (expand-file-name "mpasmx-harness.sh"
+                     (file-name-directory
+                      (symbol-file 'picasm-mpasmx-command-pieces)))
+   picasm-mpasmx-program
+   file
+   (concat (file-name-sans-extension file) ".o")
+   (picasm-stripped-chip-name chip)
+   picasm-default-radix
+   picasm-output-format))
+
+
+;; Compilation is based on Emacs' compilation infrastructure. We provide an
+;; explicit compile-command to run the assembler correctly. Since
+;; compile-command is actually a shell command (eugh!), assemble it using
+;; combine-and-quote-strings. Also bind a compilation error regex to spot
+;; MPLABX-style error messages. (It would be lovely to do this as a dynamic
+;; variable, but fontification happens after assemble-file has finished).
 (defun assemble-file ()
   (interactive)
-  (let* ((file (buffer-file-name (current-buffer)))
-	 (chip picasm-chip-select)
-	 (output-file (concat (file-name-sans-extension file) ".o")))
-    (if picasm-show-assembler-output
-	(display-buffer (get-buffer-create "*Assembler Output*")))
-    (if (not (zerop (run-assembler file chip)))
-	(message (format "Assembly of %s failed" file))
-      (if (not (zerop (picasm-link output-file)))
-	  (message (format "%s: Linker errors" file)))
-	(message (format "Assemble %s: Success" file)))))
-
-(defun run-assembler (file chip)
-  (case picasm-assembler-program
-    (gpasm (run-gpasm file chip))
-    (mpasm (run-mpasm file chip))))
-
-(defun run-gpasm (file chip)
-  "Run the GNU gputils gpasm assembler on FILE for CHIP."
-  (let ((flags (append (list (mapconcat (lambda (dir) (concat "-I " dir))
-                                        picasm-includes " "))
-		       (list "-p" chip)
-		       (list "-r" picasm-default-radix)
-		       (list "-c")
-		       (list file))))
-    (picasm-asm picasm-gpasm-program flags)))
-
-(defun picasm-asm (program flags)
-  (shell-command (concat program " " (mapconcat (lambda (x) x) flags " ")) (and picasm-show-assembler-output "*Assembler Output*")))
-  
-(defun run-mpasm (file chip)
-  "Run the Microchip MPASM assembler on FILE for CHIP. MPASM for Linux (via WINE) can be downloaded as part of MPLAB-X. See README.MPASM."
-  (let ((flags (append (list (concat "/p" chip))   ;; no spaces between flag and arg
-		       (list (concat "/r" picasm-default-radix))
-		       (list (concat "/a" (upcase picasm-output-format)))
-		       (list "/q")
-		       (list (replace-regexp-in-string "/" "\\\\\\\\" file)))))   ; win{e,doze} confused by '/'
-    (picasm-asm picasm-mpasm-program flags)))
+  (unless (assq 'picasm compilation-error-regexp-alist-alist)
+    (push
+     `(picasm
+       ,(concat
+         "^\\(?:\\(Error\\)\\|\\(Warning\\)\\)\\[[0-9]+\\][[:space:]]+"
+         "\\(.+?\\)[[:space:]]+\\([0-9]+\\)"
+         "[[:space:]]+:[[:space:]]+\\(.*\\)")
+       3 4 nil (2 . 1) 5)
+     compilation-error-regexp-alist-alist)
+    (pushnew 'picasm compilation-error-regexp-alist))
+  (compile
+   (combine-and-quote-strings
+    (mapcar #'shell-quote-argument
+            (picasm-assemble-command-pieces
+             (buffer-file-name (current-buffer))
+             picasm-chip-select)))))
 
 (defun picasm-link (file)
   "Run the final link stage to generate the HEX file from an object file"
