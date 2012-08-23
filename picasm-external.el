@@ -60,6 +60,20 @@ mind."
      (substring chip-name 1))
     (t chip-name))))
 
+(defvar picasm-object-file-directives
+  '("UDATA" ".ResetVector")
+  "A list of directives that only occur if we should generate an
+object file (rather than absolute hex)")
+
+(defun picasm-make-object-file-p ()
+  (catch 'pmofp
+    (dolist (directive picasm-object-file-directives nil)
+      (save-excursion
+        (goto-char (point-min))
+        (when (search-forward-regexp
+               (format "^[[:space:]]*%s" directive) nil t)
+          (throw 'pmofp t))))))
+
 (defun picasm-assemble-command-pieces (file chip)
   "Return a list of strings corresponding to the program and
 arguments for assembling `FILE' for the given chip. `CHIP' should
@@ -100,7 +114,8 @@ the complete name, of the form PIC16F683 or similar."
    (concat (file-name-sans-extension file) ".o")
    (picasm-stripped-chip-name chip)
    picasm-default-radix
-   picasm-output-format))
+   picasm-output-format
+   (if (picasm-make-object-file-p) "false" "true")))
 
 
 ;; Compilation is based on Emacs' compilation infrastructure. We provide an

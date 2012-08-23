@@ -12,6 +12,7 @@
 ##   $4 = The chip name (lower case, stripped of PIC prefix)
 ##   $5 = Default radix
 ##   $6 = Output format
+##   $7 = Absolute mode?
 ##
 ## Behaviour:
 ##
@@ -32,6 +33,7 @@ outfile=${3}
 chipname=${4}
 radix=${5}
 outfmt=${6}
+absolute=${7}
 
 no_temp ()
 {
@@ -42,8 +44,15 @@ no_temp ()
 errfile="$(mktemp)" || no_temp
 lstfile="$(mktemp)" || no_temp
 
-echo "${mpasmx}" "-a${outfmt}" "-p${chipname}" "-r${radix}" "-e${errfile}" "-l${lstfile}" "${infile}"
-"${mpasmx}" "-a${outfmt}" "-p${chipname}" "-r${radix}" "-e${errfile}" "-l${lstfile}" "${infile}"
+if [ x${absolute} == x"true" ]; then
+    set -x
+    "${mpasmx}" "-a${outfmt}" "-p${chipname}" "-r${radix}" "-e${errfile}" "-l${lstfile}" "${infile}"
+    set +x
+else
+    set -x
+    "${mpasmx}" "-o${outfile}" "-p${chipname}" "-r${radix}" "-e${errfile}" "-l${lstfile}" "${infile}"
+    set +x
+fi
 
 cat "${errfile}"
 
