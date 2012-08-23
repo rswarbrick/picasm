@@ -74,18 +74,14 @@ object file (rather than absolute hex)")
                (format "^[[:space:]]*%s" directive) nil t)
           (throw 'pmofp t))))))
 
-(defun picasm-assemble-command-pieces (file chip)
-  "Return a list of strings corresponding to the program and
-arguments for assembling `FILE' for the given chip. `CHIP' should
-the complete name, of the form PIC16F683 or similar."
-  (cond
-   ((eq picasm-assembler-program 'gpasm)
-    (picasm-gpasm-command-pieces file chip))
-   ((eq picasm-assembler-program 'mpasmx)
-    (picasm-mpasmx-command-pieces file chip))
-   (t
-    (error "%s is not a valid value for picasm-assembler-program."
-           picasm-assembler-program))))
+(defun picasm-assembler-case-funcall (assoc &rest args)
+  "Run the correct function based on assoc, depending on the
+value of `picasm-assembler-program'. Called with `ARGS'."
+  (let ((hit (assq picasm-assembler-program assoc)))
+    (unless hit
+      (error "No match for picasm-assembler-program '%s'."
+             picasm-assembler-program))
+    (eval (cons (second hit) args))))
 
 (defun picasm-gpasm-command-pieces (file chip)
   "See `picasm-assemble-command-pieces'."
@@ -117,14 +113,13 @@ the complete name, of the form PIC16F683 or similar."
    picasm-output-format
    (if (picasm-make-object-file-p) "false" "true")))
 
-
 ;; Compilation is based on Emacs' compilation infrastructure. We provide an
 ;; explicit compile-command to run the assembler correctly. Since
 ;; compile-command is actually a shell command (eugh!), assemble it using
 ;; combine-and-quote-strings. Also bind a compilation error regex to spot
 ;; MPLABX-style error messages. (It would be lovely to do this as a dynamic
 ;; variable, but fontification happens after assemble-file has finished).
-(defun assemble-file ()
+(defun picasm-assemble ()
   (interactive)
   (unless (assq 'picasm compilation-error-regexp-alist-alist)
     (push
@@ -139,16 +134,57 @@ the complete name, of the form PIC16F683 or similar."
   (compile
    (combine-and-quote-strings
     (mapcar #'shell-quote-argument
-            (picasm-assemble-command-pieces
+            (picasm-assembler-case-funcall
+             '((mpasmx picasm-mpasmx-command-pieces)
+               (gpasm  picasm-gpasm-command-pieces))
              (buffer-file-name (current-buffer))
              picasm-chip-select)))))
 
-(defun picasm-link (file)
+(defun picasm-gplink-command-pieces (o-file hex-file chip)
+  "See `picasm-link-command-pieces'."
+  (list picasm-gplink-program "-o" hex-file "-a" picasm-output-format o-file))
+
+(defun picasm-find-mplink-script (chip)
+  "Search for a LKR directory in the directory containing the
+mplink program and then look inside it for an appropriate linker script."
+  (let ((dir (concat (file-name-directory picasm-mplinkx-program) "/LKR"))
+        (short-chip (picasm-stripped-chip-name chip)))
+    (unless (file-directory-p dir)
+      (error "Can't find a directory at %s (containing linker scripts)" dir))
+    (let ((hits (directory-files dir t (concat "^" short-chip ".*\\.lkr$"))))
+      (unless hits
+        (error "Can't find a linker script for chip %s in %s."
+               short-chip dir))
+      (unless (= 1 (length hits))
+        (error "Found too many matching linker scripts: %s" hits))
+      (first hits))))
+
+(defun picasm-mplink-command-pieces (o-file hex-file chip)
+  "See `picasm-link-command-pieces'."
+  (list picasm-mplinkx-program (picasm-find-mplink-script chip) o-file
+        (concat "-o" hex-file)
+        (concat "-a" (upcase picasm-output-format))
+        (concat "-p" (picasm-stripped-chip-name chip)) "-d"))
+
+(defun picasm-link (&optional filename)
   "Run the final link stage to generate the HEX file from an object file"
-  (let ((flags (append (list "-o" (concat (file-name-sans-extension file) ".hex"))
-		       (list "-a" picasm-output-format)
-		       (list file))))
-    (shell-command (concat picasm-gplink-program " " (mapconcat (lambda (x) x) flags " ")))))
+  (interactive)
+  (unless filename
+    (let ((asm-name (buffer-file-name)))
+      (unless asm-name
+        (error "Cannot find a filename to link (buffer has no filename)."))
+      (setq filename (concat (file-name-sans-extension asm-name) ".hex")))
+    (let ((o-file (concat (file-name-sans-extension filename) ".o"))
+          (hex-file (concat (file-name-sans-extension filename) ".hex")))
+      (unless (file-exists-p o-file)
+        (error "The object file %s doesn't exist." o-file))
+      (compile
+       (combine-and-quote-strings
+        (mapcar #'shell-quote-argument
+                (picasm-assembler-case-funcall
+                 '((mpasmx picasm-mplink-command-pieces)
+                   (gpasm  picasm-gplink-command-pieces))
+                 o-file hex-file picasm-chip-select)))))))
 
 
 (defun picasm-insert-delay (label seconds clock-mhz)
