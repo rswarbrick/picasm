@@ -37,7 +37,7 @@
   "Default radix for assembling files"
   :options '("BIN" "DEC" "OCT" "HEX") :group 'picasm-external)
 
-(defcustom picasm-pk2cmd-program "/usr/local/bin/pk2cmd"
+(defcustom picasm-pk2cmd-program "pk2cmd"
   "Location of the pk2cmd executable"
   :type 'string :group 'picasm-external)
 
@@ -59,6 +59,16 @@ mind."
     ((char-equal ?P (upcase (aref chip-name 0)))
      (substring chip-name 1))
     (t chip-name))))
+
+(defun picasm-picced-chip-name (chip-name)
+  "Return an upper case version of `CHIP-NAME', prefixed by PIC
+if it starts with a 1. (So, for example p16f1824 => PIC16F1824
+and 12F510 => PIC12F510 but dsPIC33FJ12MC201 => DSPIC33FJ12MC201)"
+  (let ((stripped (picasm-stripped-chip-name chip-name)))
+    (upcase
+     (if (char-equal ?1 (aref stripped 0))
+         (concat "PIC" stripped)
+       stripped))))
 
 (defvar picasm-object-file-directives
   '("UDATA" ".ResetVector")
@@ -202,67 +212,86 @@ running at CLOCK-MHZ."
 
 ;; Interface to the pk2cmd command-line PIC programmer
 
+(defun picasm-run-pk2cmd (&rest args)
+  "Run pk2cmd with the given `args', and also a -P argument for
+the chip given by `picasm-chip-select'."
+  (with-temp-buffer
+    (apply 'call-process picasm-pk2cmd-program nil (current-buffer) nil
+           (concat "-P" (picasm-picced-chip-name picasm-chip-select)) args)
+    (buffer-string)))
+  
+(defun picasm-get-programmer-chip ()
+  "Run pk2cmd to find any PIC currently attached. Raises an error
+if there isn't a PicKit2 available."
+  (let ((output
+         (picasm-run-pk2cmd
+          (concat "-P" (picasm-picced-chip-name picasm-chip-select)) "-I")))
+    (if (string-match "Device Name = \\([^ \t\n]+\\)" output)
+        (match-string-no-properties 1 output)
+      (error "Couldn't find an attached PicKit2."))))
+
+(defun picasm-compare-chips ()
+  "Raises an error if there isn't a PIC attached to the computer
+matching the value of `picasm-chip-select'."
+  (let ((phy-dev (picasm-get-programmer-chip))
+        (guess (picasm-picced-chip-name picasm-chip-select)))
+    (unless (string-equal phy-dev guess)
+      (error "Chip selected does not match programmer (Have %s, want %s)."
+             phy-dev guess))))
+
 (defun picasm-pk2cmd-erase ()
+  "Erase the attached PIC."
   (interactive)
-  (compare-chips)
-  (let ((output (run-pk2cmd (append (list "-P" picasm-chip-select)
-				    (list "-E")))))
-    (if (stringp (string-match "Succeeded" output))
-	(message "chip erased"))))
+  (picasm-compare-chips)
+  (when (string-match "Succeeded" (picasm-run-pk2cmd "-E"))
+    (message "Chip erased.")))
 
 (defun picasm-pk2cmd-read ()
-  ; Read the entire PIC, regardless of how much program mem it has
+  "Read the entire contents of the attached PIC, displaying the
+results in a new buffer named *Chip Contents*."
   (interactive)
-  (compare-chips)
-  (if (not (string-equal (buffer-name (current-buffer)) "*Chip Contents*"))
-      (progn
-	(split-window-vertically)
-	(other-window 1)))
-  (if (get-buffer "*Chip Contents*")
-	(switch-to-buffer "*Chip Contents*")
-    (switch-to-buffer (get-buffer-create "*Chip Contents*")))
-  (erase-buffer)
-  (let ((output
-	 (run-pk2cmd (append (list "-P" picasm-chip-select)
-			     (list "-GP" "0-FFFFFFF")))))
-    (dolist (line (split-string output "\n"))
+  (picasm-compare-chips)
+  (unless (string-equal (buffer-name (current-buffer)) "*Chip Contents*")
+    (switch-to-buffer-other-window (get-buffer-create "*Chip Contents*"))
+    (erase-buffer)
+    (dolist (line (split-string (picasm-run-pk2cmd "-GP" "0-FFFFFFF") "\n"))
       (if (string-match "^[[:digit:]A-Fa-f]" line)
 	  (insert (concat line "\n"))))))
 
-(defun picasm-pk2cmd-verify (file)
-  (interactive "fVerify file (HEX format): ")
-  (compare-chips)
-  (let ((output (run-pk2cmd (append (list "-P" picasm-chip-select)
-				    (list (concat "-F" (expand-file-name file)))   ; space causes problems (??)
-				    (list "-Y")))))
-    (if (string-match "Verify Succeeded." output)
-	(message "Chip verify succeeded")
-      (message "Chip verify failed"))))
+(defun picasm-find-hex-file ()
+  "Find a hex file from the current buffer, by replacing the
+suffix of the current buffer's filename with .hex and trying
+that. Raises an error if the resulting file doesn't exist."
+  (let ((filename
+         (concat (file-name-sans-extension (or (buffer-file-name) ""))
+                 ".hex")))
+    (unless (file-readable-p filename)
+      (error "Hex file '%s' cannot be read." filename))
+    filename))
 
-(defun picasm-pk2cmd-program (file)
-  (interactive "fProgram file (HEX format): ")
-  (compare-chips)
-  (let ((output (run-pk2cmd (append (list "-P" picasm-chip-select)
-				    (list (concat "-F" (expand-file-name file)))
-				    (list "-MP")))))
-    (if (string-match "Program Succeeded." output)
-	(message "Chip progamming succeeded")
-      (message "Chip programming failed"))))
+(defun picasm-pk2cmd-verify (&optional filename)
+  "Verify the contents of the attached chip match a hex file. If
+`filename' is given, use that to check against. Otherwise tries
+`picasm-find-hex-file'."
+  (interactive)
+  (unless filename (setf filename (picasm-find-hex-file)))
+  (picasm-compare-chips)
+  (if (string-match "Verify Succeeded."
+                    (picasm-run-pk2cmd
+                     (concat "-F" (expand-file-name filename)) "-Y"))
+      (message "Chip verify succeeded")
+    (message "Chip verify failed")))
 
-(defun run-pk2cmd (args)
-  (shell-command-to-string (mapconcat #'(lambda (x) x) `(,picasm-pk2cmd-program ,@args) " ")))
-  
-(defun get-programmer-chip ()
-  (let ((output (run-pk2cmd (append (list "-P" picasm-chip-select)
-				    (list "-I")))))
-    (string-match "Device Name = \\([^ \t\n]+\\)" output)
-    (match-string-no-properties 1 output)))
-
-(defun compare-chips ()
-  (let ((phy-dev (get-programmer-chip)))
-    (if (not (string-equal phy-dev picasm-chip-select))
-	(error (format "Chip selected does not match programmer (Have %s, want %s)." phy-dev picasm-chip-select))
-      t)))
-      
+(defun picasm-pk2cmd-program (&optional filename)
+  "Program the attached chip with a hex file. Either use
+`filename', or find a file using `picasm-find-hex-file'."
+  (interactive)
+  (unless filename (setf filename (picasm-find-hex-file)))
+  (picasm-compare-chips)
+  (if (string-match "Program Succeeded."
+                    (picasm-run-pk2cmd
+                     (concat "-F" (expand-file-name filename)) "-MP"))
+      (message "Chip progamming succeeded")
+    (message "Chip programming failed")))
 
 (provide 'picasm-external)
