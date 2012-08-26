@@ -66,6 +66,10 @@
   "Number of tabs to indent comments"
   :type 'integer :group 'picasm)
 
+(defcustom picasm-right-comment-column 40
+  "Column where comments start after instructions."
+  :type 'integer :group 'picasm)
+
 (defcustom picasm-require-comment t
   "Whether to require a comment on every line (even if empty)"
   :type 'boolean :group 'picasm)
@@ -132,25 +136,47 @@
 	     (indent-line-to 0)
 	     (end-of-line)))
 	  (t (message "don't know how to indent this line")))))
-    	
-(defun picasm-electric-comment ()
-  "Insert a comment at EOL, move point to it. If there is already a comment there, move point to it. Otherwise, insert a semicolon."
-  (interactive)
+
+(defun picasm-electric-comment (arg)
+  "Insert a comment at EOL, move point to it. If there is already
+a comment there, move point to it. Otherwise, insert a
+semicolon. The prefix arg can be used to insert multiple
+semicolons like self-insert-command."
+  (interactive "p")
   (let ((p (point)))
     (beginning-of-line)
-    (cond ((looking-at "^[ \t]+[[:alpha:]]+[ \t]+[^ \t]+[ \t]*$")
-	   (progn
-	     (strip-trailing-whitespace)
-	     (end-of-line)
-	     (dotimes (i picasm-instruction-comment-indent-tabs)
-	       (insert "\t"))
-	     (insert "; ")))
-	  ((looking-at "^[ \t]+[[:alpha:]]+[ \t]+[^ \t]+[ \t]+;.*$")
-	   (end-of-line))
-	  (t (progn
-	       (goto-char p)
-	       (insert ";"))))))
-      
+    (cond
+     ((looking-at "[ \t]*\\([[:alpha:]]\\)[^;]*$")
+      ;; There is code in this line, but no comment. If ';' was hit before
+      ;; anything non-whitespace in the line, the user probably just wants to
+      ;; comment out the line, so we let him or her do so. Otherwise, jump to
+      ;; the comment column at the end of the line.
+      (if (<= p (match-beginning 1))
+          (dotimes (k arg) (insert ";"))
+        (strip-trailing-whitespace)
+        (end-of-line)
+        (dotimes (i (- picasm-right-comment-column (current-column)))
+          (insert " "))
+        (dotimes (k arg) (insert ";"))
+        (insert " ")))
+     ;; There is a comment in this line already. If there is also non-comment
+     ;; text, and point is before the start of that or if point is after the
+     ;; first semicolon, then just insert the semicolon. Otherwise, jump to the
+     ;; start of the comment if we haven't got there yet.
+     ((looking-at "[[:space:]]*\\([^;]?\\).*?\\(;+\\)[ ]*")
+      (cond
+       ((or (and (not (string= (match-string 1) ""))
+                 (< p (match-beginning 1)))
+            (> p (match-beginning 2)))
+        (goto-char p)
+        (dotimes (k arg) (insert ";")))
+       (t
+        (goto-char (match-end 0)))))
+     ;; Otherwise, just insert the point as requested
+     (t
+      (goto-char p)
+      (dotimes (k arg) (insert ";"))))))
+
 (defvar picasm-chip-select "PIC16F84A")
 
 (defvar picasm-mode-syntax-table 
