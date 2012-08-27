@@ -50,20 +50,20 @@
  	`(,picasm-mode-section-marker-re . font-lock-keyword-face)
  	`(,picasm-mode-identifier-re . font-lock-variable-name-face)))
 
-(defcustom picasm-instruction-indent-spaces 6
+(defcustom picasm-instruction-column 6
   "Number of spaces to indent instruction lines"
   :type 'integer :group 'picasm)
 
-(defcustom picasm-section-marker-indent-spaces 8
+(defcustom picasm-argument-column 14
+  "The column to which to indent arguments after instructions."
+  :type 'integer :group 'picasm)
+
+(defcustom picasm-left-comment-column 6
+  "Column to where comment lines (without instructions) should be indented."
+  :type 'integer :group 'picasm)
+
+(defcustom picasm-section-marker-column 8
   "Number of spaces to indent section markers"
-  :type 'integer :group 'picasm)
-
-(defcustom picasm-instruction-argument-indent-tabs 2
-  "Number of tabs to insert after instructions, before arguments"
-  :type 'integer :group 'picasm)
-
-(defcustom picasm-instruction-comment-indent-tabs 2
-  "Number of tabs to indent comments"
   :type 'integer :group 'picasm)
 
 (defcustom picasm-right-comment-column 40
@@ -80,68 +80,135 @@
     (while (re-search-forward "[ \t]+$" nil t)
       (replace-match ""))))
 
-(defun picasm-mode-indent-instruction-line ()
-  "Indent an instruction"
+(defmacro picasm-looking-at-cond (&rest clauses)
+  "A macro that runs the CDRs of `clauses', depending on whether
+we are `looking-at' something matching their first elements. If a
+clause is keyed with true, it always matches."
+  (cons 'cond
+        (mapcar (lambda (clause)
+                  `(,(or (eq (car clause) t)
+                         `(looking-at ,(car clause)))
+                    ,@(cdr clause))) clauses)))
+
+(defun picasm-line-pieces ()
+  "Analyse a line that is being indented. Returns a list of
+triples (FROM TO STR), where FROM is the column that STR
+currently starts at, TO is a (minimum) column number to put it at
+and STR is the string to place. When point is at the end of line
+and not yet in a comment, it adds one more empty or '; ' STR at
+the next correct tab stop column."
+  (save-excursion
+    ;; The following regex for the comment picks up any trailing space before
+    ;; the semicolon (but ignores it), and keeps trailing whitespace. To use it,
+    ;; make sure the previous regex has a non-greedy match for characters
+    ;; including [:space:] as its last part. This match will pick up trailing
+    ;; whitespace if there isn't a comment, but not if there is.
+    (let ((comment-regex "\\(?:[[:space:]]*\\(;.*?\\)\\)?$")
+          (bol (point))
+          (eolp (looking-at "[[:space:]]*$")))
+      (beginning-of-line)
+      (picasm-looking-at-cond
+       ((concat "[[:space:]]*"
+                "\\(\\(?:UDATA\\(?:_SHR\\)?\\|CODE\\|__CONFIG\\|END\\).*?\\)"
+                comment-regex)
+        (cons (list (- (match-beginning 1) bol)
+                    picasm-section-marker-column (match-string 1))
+              (if (match-beginning 2)
+                  (list (list (- (match-beginning 2) bol)
+                              picasm-right-comment-column (match-string 2)))
+                (when eolp
+                  (list (list (- (line-end-position) bol)
+                              picasm-right-comment-column "; "))))))
+       ;; A label has no indent and is alphanumeric, although it might end with
+       ;; a colon. Grab the whole thing and "indent it to 0" (not that this will
+       ;; actually do anything), and deal with a trailing comment as usual.
+       ((concat "\\([[:alnum:]_]+:?[[:space:]]*?\\)" comment-regex)
+        (cons (list (- (match-beginning 1) bol) 0 (match-string 1))
+              (if (match-beginning 2)
+                  (list (list (- (match-beginning 2) bol)
+                              picasm-right-comment-column (match-string 2)))
+                (when eolp
+                  (list (list (- (line-end-position) bol)
+                              picasm-right-comment-column "; "))))))
+       ;; A comment line starts with a colon.
+       ("[[:space:]]*\\(;.*\\)"
+        (list (list (- (match-beginning 1) bol)
+                    picasm-left-comment-column (match-string 1))))
+       ;; This matches an instruction, which must have a nonzero indent, then
+       ;; possibly arguments consisting of alnum, _, - (for ERRORLEVEL commands),
+       ;; commas and apostrophes (for b'xxx'), then some space and an optional
+       ;; comment.
+       ((concat "^[[:space:]]+\\([[:alnum:]_]+[:space:]*?\\)"
+                "\\(?:[[:space:]]+\\([[:alnum:]_[:space:]'-,]*?\\)\\)?"
+                comment-regex)
+        (cons (list (- (match-beginning 1) bol)
+                    picasm-instruction-column (match-string 1))
+              (append
+               (when (and (match-beginning 2) (< 0 (length (match-string 2))))
+                 (list (list (- (match-beginning 2) bol)
+                             picasm-argument-column (match-string 2))))
+               (when (match-beginning 3)
+                 (list (list (- (match-beginning 3) bol)
+                             picasm-right-comment-column (match-string 3))))
+               (when (and eolp (not (match-beginning 3)))
+                 (if (not (match-beginning 2))
+                     (list (list (- (line-end-position) bol)
+                                 picasm-argument-column ""))
+                   (list (list (- (line-end-position) bol)
+                               picasm-right-comment-column "; ")))))))
+       ;; An empty line is treated as an instruction-in-waiting...
+       ("[[:space:]]*$" `((0 ,picasm-instruction-column "")))
+       ;; I don't know anything about this line, so grab the whole lot and
+       ;; indent it to zero (won't do anything).
+       (".*"
+        `((0 0 ,(match-string 0))))))))
+
+(defun picasm-indent-line ()
+  "Indent a line correctly for PICASM-MODE. The line is analysed
+and split apart into strings that should appear starting at
+various columns (see variables like `picasm-instruction-column'),
+then these pieces are inserted, hopefully not messing up the
+position of the cursor."
   (interactive)
-  (beginning-of-line)
-  (if (bobp)
-      (indent-line-to 0)
-    (cond ((looking-at "^[ \t]*\\(UDATA\\(?:_SHR\\)?\\|CODE\\|__CONFIG\\|END\\)")
-	   (progn
-	     (indent-line-to picasm-section-marker-indent-spaces)
-	     (end-of-line)))
-	  ((looking-at "^[[:alnum:]_]:?")   ; label
-	   (progn
-	     (indent-line-to 0)
-	     (end-of-line)))
-	  ((looking-at "^\s*$")   ; line is empty, assume we want to enter an ins
-	   (indent-line-to picasm-instruction-indent-spaces))
-	  ; instruction, but no arg. advance to argument position.
-	  ((looking-at "^[ \t]+[[:alpha:]]+$")
-	   (progn 
-	     (end-of-line)
-	     (dotimes (i picasm-instruction-argument-indent-tabs)
-	       (insert "\t"))))
-	  ; at argument position, erase any tabs and re-tabify
-	  ((looking-at "^[ \t]+[[:alpha:]]+[ \t]+$")
-	   (progn
-	     (strip-trailing-whitespace)
-	     (forward-word 1)
-	     (save-excursion
-	       (dotimes (i picasm-instruction-argument-indent-tabs)
-		 (insert "\t")))
-	     (end-of-line)))
-	  ; complete instruction/argument pair. re-indent and leave point at eol or comment if enabled.
-	  ((looking-at "^[ \t]+[[:alpha:]]+[ \t]+[^ \t]+[ \t]*$")
-	   (progn
-	     (strip-trailing-whitespace)
-	     (end-of-line)
-	     (if picasm-require-comment
-		 (progn
-		   (dotimes (i picasm-instruction-comment-indent-tabs)
-		     (insert "\t"))
-		   (insert "; "))
-	       (progn
-		 (indent-line-to picasm-instruction-indent-spaces)
-		 (end-of-line)))))
-	  ;; complete instruction/argument pair with comment; leave point at eol
-	  ((looking-at "^[ \t]+[[:alpha:]]+[ \t]+[^ \t]+[ \t]+;.*$")
-	   (end-of-line))
-	  ((looking-at (concat "^[ \t]*" picasm-mode-font-lock-syntheticop-keyword-re))
-	   (progn
-	     (indent-line-to picasm-instruction-indent-spaces)
-	     (end-of-line)))
-	  ((looking-at (concat "[ \t]*" picasm-mode-pp-directive-re))
-	   (progn
-	     (indent-line-to 0)
-	     (end-of-line)))
-	  (t (message "don't know how to indent this line")))))
+  (let ((pieces (picasm-line-pieces))
+        (point-col (current-column))
+        (new-col nil)
+        (previous-piece nil) (previous-insertion-col nil))
+    ;; Clear the current line
+    (delete-region (line-beginning-position) (line-end-position))
+    ;; Insert the pieces, shifting COL if necessary.
+    (dolist (piece pieces)
+      ;; PIECE is (OLD-COL NEW-COL STR)
+      (when (> (second piece) 0)
+        (indent-to (second piece) (unless (looking-back " ") 1)))
+      (when (and (not new-col) (< point-col (first piece)))
+        ;; This is the first piece that follows the old point. Since I know I've
+        ;; inserted enough stuff now, update CURRENT-COLUMN to the correct
+        ;; position. If point is before the first insert, it should be jumped
+        ;; forward.
+        (setq new-col
+              (if previous-piece
+                  (min (current-column)
+                       (+ (- point-col (first previous-piece))
+                          previous-insertion-col))
+                (current-column))))
+      (setq previous-insertion-col (current-column)
+            previous-piece piece)
+      (insert (third piece)))
+    (unless new-col
+      (setq new-col
+            (min (current-column)
+                 (+ (- point-col (first previous-piece))
+                    previous-insertion-col))))
+    ;; Move point to the correct column
+    (goto-char (+ (line-beginning-position) new-col))))
 
 (defun picasm-electric-comment (arg)
   "Insert a comment at EOL, move point to it. If there is already
 a comment there, move point to it. Otherwise, insert a
 semicolon. The prefix arg can be used to insert multiple
-semicolons like self-insert-command."
+semicolons like self-insert-command. Comments after the text are
+placed in `picasm-right-comment-column'."
   (interactive "p")
   (let ((p (point)))
     (beginning-of-line)
@@ -192,7 +259,6 @@ semicolons like self-insert-command."
   :type 'boolean :group 'picasm)
 
 (defun picasm-setup-default-keybindings ()
-  (define-key picasm-mode-map "\t" 'picasm-mode-indent-instruction-line)
   (define-key picasm-mode-map ";" 'picasm-electric-comment)
   (define-key picasm-mode-map "\C-c\C-c" 'picasm-assemble)
   (define-key picasm-mode-map "\C-c\C-l" 'picasm-link)
@@ -204,7 +270,7 @@ semicolons like self-insert-command."
 					     (interactive)
 					     (end-of-line)
 					     (newline)
-					     (picasm-mode-indent-instruction-line))))
+					     (picasm-indent-line))))
 
 (defcustom picasm-mode-hook nil
   "Hook run when picasm-mode is initialized"
@@ -216,7 +282,7 @@ semicolons like self-insert-command."
   (set-syntax-table picasm-mode-syntax-table)
   (use-local-map picasm-mode-map)
   (set (make-local-variable 'font-lock-defaults) '(picasm-mode-font-lock-keywords nil t))
-  (set (make-local-variable 'indent-line-function) 'picasm-mode-indent-instruction-line)
+  (set (make-local-variable 'indent-line-function) 'picasm-indent-line)
   (setq major-mode 'picasm-mode)
   (setq mode-name (format "PICasm [%s]" picasm-chip-select))
   (set (make-local-variable 'font-lock-keywords)
