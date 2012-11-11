@@ -44,7 +44,7 @@ no_temp ()
 errfile="$(mktemp)" || no_temp
 lstfile="$(mktemp)" || no_temp
 
-if [ x${absolute} == x"true" ]; then
+if [ x"${absolute}" = x"true" ]; then
     set -x
     "${mpasmx}" "-a${outfmt}" "-p${chipname}" "-r${radix}" "-e${errfile}" "-l${lstfile}" "${infile}"
     set +x
