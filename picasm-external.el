@@ -41,6 +41,12 @@
   "Location of the pk2cmd executable"
   :type 'string :group 'picasm-external)
 
+(defcustom picasm-mpasmx-harness-dir
+  (file-name-directory
+   (symbol-file 'picasm-mpasmx-command-pieces))
+  "Location of the mpasmx-harness.sh executable"
+  :type 'string :group 'picasm-external)
+
 (defcustom picasm-show-assembler-output nil
   "Whether to display assembler output in a new window"
   :type 'boolean :group 'picasm)
@@ -113,8 +119,7 @@ value of `picasm-assembler-program'. Called with `ARGS'."
   "See `picasm-assemble-command-pieces'."
   (list
    (expand-file-name "mpasmx-harness.sh"
-                     (file-name-directory
-                      (symbol-file 'picasm-mpasmx-command-pieces)))
+                     picasm-mpasmx-harness-dir)
    picasm-mpasmx-program
    file
    (concat (file-name-sans-extension file) ".o")
