@@ -41,6 +41,10 @@
   "Location of the pk2cmd executable"
   :type 'string :group 'picasm-external)
 
+(defcustom picasm-pk2devicefile ""
+  "Location of the PK2DeviceFile.dat file"
+  :type 'string :group 'picasm-external)
+
 (defcustom picasm-mpasmx-harness-dir
   (file-name-directory
    (symbol-file 'picasm-mpasmx-command-pieces))
@@ -218,13 +222,17 @@ running at CLOCK-MHZ."
 ;; Interface to the pk2cmd command-line PIC programmer
 
 (defun picasm-run-pk2cmd (&rest args)
-  "Run pk2cmd with the given `args', and also a -P argument for
-the chip given by `picasm-chip-select'."
+  "Run pk2cmd with the given ARGS,
+
+Gives two additional arguments:
+  -P for the chip given by `picasm-chip-select'
+  -B for the pk2devicefile given by `picasm-pk2devicefile'"
   (with-temp-buffer
     (apply 'call-process picasm-pk2cmd-program nil (current-buffer) nil
+           (concat "-B" (expand-file-name picasm-pk2devicefile))
            (concat "-P" (picasm-picced-chip-name picasm-chip-select)) args)
     (buffer-string)))
-  
+
 (defun picasm-get-programmer-chip ()
   "Run pk2cmd to find any PIC currently attached. Raises an error
 if there isn't a PicKit2 available."
